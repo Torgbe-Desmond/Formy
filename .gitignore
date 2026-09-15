@@ -1,0 +1,9 @@
+bin/
+obj/
+logs/
+.env
+appsettings.Local.json
+appsettings.Development.json
+appsettings.json
+
+
