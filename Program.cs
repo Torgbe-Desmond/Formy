@@ -6,7 +6,15 @@ using Microsoft.EntityFrameworkCore;
 using Serilog;
 
 // DotEnv.Load(options: new DotEnvOptions(ignoreExceptions: true));
-var builder = WebApplication.CreateBuilder(args);
+
+// Item 1: Explicitly defining the WebRootPath (just in case the defaults miss it)
+var webApplicationOptions = new WebApplicationOptions
+{
+    Args = args,
+    WebRootPath = "wwwroot"
+};
+
+var builder = WebApplication.CreateBuilder(webApplicationOptions);
 
 builder.Host.UseSerilog();
 
@@ -38,6 +46,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseSerilogRequestLogging();
 app.UseCors("AllowFrontend");
+
+// Item 2 & 3: Serve default files (index.html) and enable static files
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
