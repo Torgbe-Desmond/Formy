@@ -70,7 +70,6 @@ public class AuthService : IAuthService
         return new AuthResponse(token, new UserDto(newUser.Id, newUser.Name, newUser.Email));
     }
 
-
     public async Task<User?> FindByEmail(string email, CancellationToken ct = default)
     {
         User? user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
