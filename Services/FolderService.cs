@@ -64,20 +64,13 @@ public class FolderService : IFolderSerivce
 
     public async Task<Folder> AddFolderAsync(Guid projectId, FolderRequest request, CancellationToken ct = default)
     {
-        try
-        {
-            Folder folder = new Folder { Name = request.Name.Trim(), ProjectId = projectId };
-            _db.Folders.Add(folder);
+        Folder folder = new Folder { Name = request.Name.Trim(), ProjectId = projectId };
+        _db.Folders.Add(folder);
 
-            // On every folder creation there will be an entry schema created for it.
-            await _schemaService.AddEntrySchemaAsync(folder.Id);
-            await _db.SaveChangesAsync(ct);
-            return folder;
-        }
-        catch (Exception)
-        {
-            throw;
-        }
+        // On every folder creation there will be an entry schema created for it.
+        await _schemaService.AddEntrySchemaAsync(folder.Id);
+        await _db.SaveChangesAsync(ct);
+        return folder;
     }
 
     public async Task<Folder> UpdateFolderAsync(Guid folderId, FolderRequest request, CancellationToken ct = default)
@@ -95,16 +88,8 @@ public class FolderService : IFolderSerivce
 
     public async Task DeleteFolderAsync(Folder folder, CancellationToken ct = default)
     {
-        try
-        {
-            _db.Folders.Remove(folder);
-            await _db.SaveChangesAsync(ct);
-        }
-        catch (Exception)
-        {
-
-            throw;
-        }
+        _db.Folders.Remove(folder);
+        await _db.SaveChangesAsync(ct);
     }
 
 

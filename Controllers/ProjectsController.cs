@@ -23,15 +23,8 @@ public class ProjectsController : ApiControllerBase
     [ProducesResponseType(typeof(ResponseModel<object>), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetAll(CancellationToken ct)
     {
-        try
-        {
-            List<Project> projects = await _projects.GetAllProjectsAsync(CurrentUserId, ct);
-            return Ok(projects.Select(project => project.ToDto()));
-        }
-        catch (Exception)
-        {
-            throw;
-        }
+        List<Project> projects = await _projects.GetAllProjectsAsync(CurrentUserId, ct);
+        return Ok(projects.Select(project => project.ToDto()));
     }
 
     [HttpGet("{id:guid}")]
@@ -40,15 +33,8 @@ public class ProjectsController : ApiControllerBase
     [ProducesResponseType(typeof(ResponseModel<object>), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        try
-        {
-            Project project = await _projects.GetProjectAsync(id, CurrentUserId, ct);
-            return Ok(project.ToDto());
-        }
-        catch (Exception)
-        {
-            throw;
-        }
+        Project project = await _projects.GetProjectAsync(id, CurrentUserId, ct);
+        return Ok(project.ToDto());
     }
 
     [HttpPost]
@@ -57,18 +43,11 @@ public class ProjectsController : ApiControllerBase
     [ProducesResponseType(typeof(ResponseModel<object>), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Create(ProjectRequest request, CancellationToken ct)
     {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 200)
-                throw new BadRequestException("Name is required and must be 200 characters or less");
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 200)
+            throw new BadRequestException("Name is required and must be 200 characters or less");
 
-            var project = await _projects.CreateProjectAsync(request.Name, CurrentUserId, ct);
-            return StatusCode(StatusCodes.Status201Created, project.ToDto());
-        }
-        catch (Exception)
-        {
-            throw;
-        }
+        var project = await _projects.CreateProjectAsync(request.Name, CurrentUserId, ct);
+        return StatusCode(StatusCodes.Status201Created, project.ToDto());
     }
 
     [HttpPut("{id:guid}")]
@@ -77,18 +56,11 @@ public class ProjectsController : ApiControllerBase
     [ProducesResponseType(typeof(ResponseModel<object>), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Rename(Guid id, ProjectRequest request, CancellationToken ct)
     {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 200)
-                throw new BadRequestException("Name is required and must be 200 characters or less");
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 200)
+            throw new BadRequestException("Name is required and must be 200 characters or less");
 
-            Project project = await _projects.RenameProjectAsync(id, CurrentUserId, request.Name, ct);
-            return Ok(project.ToDto());
-        }
-        catch (Exception)
-        {
-            throw;
-        }
+        Project project = await _projects.RenameProjectAsync(id, CurrentUserId, request.Name, ct);
+        return Ok(project.ToDto());
     }
 
     [HttpDelete("{id:guid}")]
@@ -97,14 +69,7 @@ public class ProjectsController : ApiControllerBase
     [ProducesResponseType(typeof(ResponseModel<object>), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Remove(Guid id, CancellationToken ct)
     {
-        try
-        {
-            await _projects.DeleteProjectAsync(id, CurrentUserId, ct);
-            return NoContent();
-        }
-        catch (Exception)
-        {
-            throw;
-        }
+        await _projects.DeleteProjectAsync(id, CurrentUserId, ct);
+        return NoContent();
     }
 }

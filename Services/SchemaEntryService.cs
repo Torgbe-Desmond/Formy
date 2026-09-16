@@ -17,19 +17,10 @@ public class SchemaEntryService : ISchemaEntryService
 
     public async Task DeleteSchemaEntry(Guid schemaTemplateId, string SchemaEntryName, CancellationToken ct = default)
     {
-        try
-        {
-
-            SchemaEntry? schemaEntry = await _db.SchemaEntries.FirstOrDefaultAsync(s => s.SchemaTemplateId == schemaTemplateId && s.Name == SchemaEntryName);
-            if (schemaEntry == null) throw new NotFoundException("Schema not found.");
-            _db.SchemaEntries.Remove(schemaEntry);
-            await _db.SaveChangesAsync();
-
-        }
-        catch (Exception)
-        {
-            throw;
-        }
+        SchemaEntry? schemaEntry = await _db.SchemaEntries.FirstOrDefaultAsync(s => s.SchemaTemplateId == schemaTemplateId && s.Name == SchemaEntryName);
+        if (schemaEntry == null) throw new NotFoundException("Schema not found.");
+        _db.SchemaEntries.Remove(schemaEntry);
+        await _db.SaveChangesAsync();
     }
 
 }

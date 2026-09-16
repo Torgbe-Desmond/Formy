@@ -34,9 +34,9 @@ public class ExceptionMiddleware
         {
             await WriteAsync(context, aex.StatusCode, new ErrorMessage(aex.Message));
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            await WriteAsync(context, 500, new ErrorMessage("Internal server error"));
+            await WriteAsync(context, 500, new ErrorMessage(ex.InnerException?.Message ?? ex?.Message ?? "Internal Server Error"));
         }
     }
 
@@ -45,13 +45,12 @@ public class ExceptionMiddleware
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = statusCode;
 
-        ResponseModel<object> responseModel = new ResponseModel<object>
+        ErrorResponseModel errorResponseModel = new ErrorResponseModel
         {
-            Data = null,
             Message = payload.message,
             StatusCode = statusCode,
         };
 
-        return context.Response.WriteAsync(JsonSerializer.Serialize(responseModel, JsonOptions));
+        return context.Response.WriteAsync(JsonSerializer.Serialize(errorResponseModel, JsonOptions));
     }
 }

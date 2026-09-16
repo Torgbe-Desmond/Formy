@@ -19,25 +19,16 @@ public class ProjectService : IProjectService
 
     public async Task<List<Project>> GetAllProjectsAsync(Guid ownerId, CancellationToken ct = default)
     {
-        try
-        {
-
-            return await _db.Projects
+        return await _db.Projects
                     .Where(p => p.OwnerId == ownerId)
                     .Include(p => p.Folders)
                     .OrderByDescending(p => p.CreatedAt)
                     .ToListAsync(ct);
-
-        }
-        catch (Exception)
-        {
-            throw;
-        }
     }
 
     public async Task<Project> GetProjectAsync(Guid id, Guid ownerId, CancellationToken ct = default)
     {
-        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == id, ct)
+        Project project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == id, ct)
             ?? throw new NotFoundException("Project not found");
         if (project.OwnerId != ownerId) throw new ForbiddenException();
         return project;
@@ -45,64 +36,39 @@ public class ProjectService : IProjectService
 
     public async Task<Project> CreateProjectAsync(string name, Guid ownerId, CancellationToken ct = default)
     {
-        try
-        {
-
-            var project = new Project { Name = name.Trim(), OwnerId = ownerId };
-            _db.Projects.Add(project);
-            await _db.SaveChangesAsync(ct);
-            return project;
-        }
-        catch (Exception)
-        {
-
-            throw;
-        }
+        Project project = new Project { Name = name.Trim(), OwnerId = ownerId };
+        _db.Projects.Add(project);
+        await _db.SaveChangesAsync(ct);
+        return project;
     }
 
     public async Task<Project> RenameProjectAsync(Guid id, Guid ownerId, string name, CancellationToken ct = default)
     {
-        try
-        {
-            var project = await GetProjectAsync(id, ownerId, ct);
-            project.Name = name.Trim();
-            project.UpdatedAt = DateTime.UtcNow;
-            await _db.SaveChangesAsync(ct);
-            return project;
-        }
-        catch (Exception)
-        {
-
-            throw;
-        }
+        Project project = await GetProjectAsync(id, ownerId, ct);
+        project.Name = name.Trim();
+        project.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return project;
     }
 
     public async Task DeleteProjectAsync(Guid id, Guid ownerId, CancellationToken ct = default)
     {
-        try
+
+        var project = await GetProjectAsync(id, ownerId, ct);
+
+        // Cascade: delete file content (not a real FK, so this must be manual),
+        // then remove the project — SQL Server cascade deletes handle
+        // Folders → AppFiles/SchemaTemplates/Metadata below it.
+        var folderIds = await _db.Folders.Where(f => f.ProjectId == project.Id).Select(f => f.Id).ToListAsync(ct);
+        var contentIds = await _db.AppFiles.Where(f => folderIds.Contains(f.FolderId)).Select(f => f.ContentId).ToListAsync(ct);
+
+        foreach (var contentId in contentIds)
         {
-
-            var project = await GetProjectAsync(id, ownerId, ct);
-
-            // Cascade: delete file content (not a real FK, so this must be manual),
-            // then remove the project — SQL Server cascade deletes handle
-            // Folders → AppFiles/SchemaTemplates/Metadata below it.
-            var folderIds = await _db.Folders.Where(f => f.ProjectId == project.Id).Select(f => f.Id).ToListAsync(ct);
-            var contentIds = await _db.AppFiles.Where(f => folderIds.Contains(f.FolderId)).Select(f => f.ContentId).ToListAsync(ct);
-
-            foreach (var contentId in contentIds)
-            {
-                try { await _content.DeleteFileContentAsync(contentId, ct); }
-                catch { /* ignore missing storage entries */ }
-            }
-
-            _db.Projects.Remove(project);
-            await _db.SaveChangesAsync(ct);
+            try { await _content.DeleteFileContentAsync(contentId, ct); }
+            catch { /* ignore missing storage entries */ }
         }
-        catch (Exception)
-        {
 
-            throw;
-        }
+        _db.Projects.Remove(project);
+        await _db.SaveChangesAsync(ct);
     }
 }

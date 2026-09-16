@@ -36,36 +36,21 @@ public class FoldersController : ApiControllerBase
     [HttpGet("projects/{projectId:guid}/folders")]
     public async Task<IActionResult> GetByProject(Guid projectId, CancellationToken ct)
     {
-        try
+        Project project = await _projectService.GetProjectAsync(projectId, CurrentUserId, ct)
+                      ?? throw new NotFoundException("Project not found");
+
+        if (project.OwnerId != CurrentUserId) throw new ForbiddenException();
+
+        List<Folder> folders = await _folderSerivce.GetFolderListByProjectId(projectId, ct);
+
+        ResponseModel<List<FolderDto>> responseModel = new ResponseModel<List<FolderDto>>
         {
-            Project project = await _projectService.GetProjectAsync(projectId, CurrentUserId, ct)
-                        ?? throw new NotFoundException("Project not found");
+            Data = folders.Select(folder => folder.ToDto()).ToList(),
+            Message = "Folders fetched succesfully",
+            StatusCode = StatusCodes.Status200OK
+        };
 
-            if (project.OwnerId != CurrentUserId) throw new ForbiddenException();
-
-            List<Folder> folders = await _folderSerivce.GetFolderListByProjectId(projectId, ct);
-
-            ResponseModel<List<FolderDto>> responseModel = new ResponseModel<List<FolderDto>>
-            {
-                Data = folders.Select(folder => folder.ToDto()).ToList(),
-                Message = "Folders fetched succesfully",
-                StatusCode = StatusCodes.Status200OK
-            };
-
-            return Ok(responseModel);
-        }
-        catch (Exception ex)
-        {
-
-            ResponseModel<object> error = new ResponseModel<object>
-            {
-                Data = null,
-                Message = ex.InnerException?.Message ?? ex.Message,
-                StatusCode = StatusCodes.Status500InternalServerError
-            };
-
-            return StatusCode(StatusCodes.Status500InternalServerError, error);
-        }
+        return Ok(responseModel);
     }
 
 
@@ -75,31 +60,24 @@ public class FoldersController : ApiControllerBase
     [ProducesResponseType(typeof(ResponseModel<AppFileDetailDto>), StatusCodes.Status201Created)]
     public async Task<IActionResult> Create(Guid projectId, FolderRequest request, CancellationToken ct)
     {
-        try
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 200)
+            throw new BadRequestException("Name is required");
+
+        Project project = await _projectService.GetProjectAsync(projectId, CurrentUserId, ct)
+            ?? throw new NotFoundException("Project not found");
+
+        if (project.OwnerId != CurrentUserId) throw new ForbiddenException();
+
+        Folder folder = await _folderSerivce.AddFolderAsync(projectId, request, ct);
+
+        ResponseModel<FolderDto> responseModel = new ResponseModel<FolderDto>
         {
-            if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 200)
-                throw new BadRequestException("Name is required");
+            Data = folder.ToDto(),
+            Message = "Folder fetched succesfully",
+            StatusCode = StatusCodes.Status200OK
+        };
 
-            Project project = await _projectService.GetProjectAsync(projectId, CurrentUserId, ct)
-                ?? throw new NotFoundException("Project not found");
-
-            if (project.OwnerId != CurrentUserId) throw new ForbiddenException();
-
-            Folder folder = await _folderSerivce.AddFolderAsync(projectId, request, ct);
-
-            ResponseModel<FolderDto> responseModel = new ResponseModel<FolderDto>
-            {
-                Data = folder.ToDto(),
-                Message = "Folder fetched succesfully",
-                StatusCode = StatusCodes.Status200OK
-            };
-
-            return StatusCode(StatusCodes.Status201Created, responseModel);
-        }
-        catch (Exception)
-        {
-            throw;
-        }
+        return StatusCode(StatusCodes.Status201Created, responseModel);
     }
 
     [HttpPut("folders/{folderId:guid}")]
@@ -108,56 +86,42 @@ public class FoldersController : ApiControllerBase
     [ProducesResponseType(typeof(ResponseModel<AppFileDetailDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Rename(Guid folderId, FolderRequest request, CancellationToken ct)
     {
-        try
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 200)
+            throw new BadRequestException("Name is required");
+
+        Folder folder = await _folderSerivce.UpdateFolderAsync(folderId, request, ct);
+
+        ResponseModel<FolderDto> responseModel = new ResponseModel<FolderDto>
         {
-            if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 200)
-                throw new BadRequestException("Name is required");
+            Data = folder.ToDto(),
+            Message = "Folder fetched succesfully",
+            StatusCode = StatusCodes.Status200OK
+        };
 
-            Folder folder = await _folderSerivce.UpdateFolderAsync(folderId, request, ct);
-
-            ResponseModel<FolderDto> responseModel = new ResponseModel<FolderDto>
-            {
-                Data = folder.ToDto(),
-                Message = "Folder fetched succesfully",
-                StatusCode = StatusCodes.Status200OK
-            };
-
-            return StatusCode(StatusCodes.Status200OK, responseModel);
-        }
-        catch (Exception)
-        {
-            throw;
-        }
+        return StatusCode(StatusCodes.Status200OK, responseModel);
     }
 
     [HttpDelete("folders/{folderId:guid}")]
     public async Task<IActionResult> Remove(Guid folderId, CancellationToken ct)
     {
-        try
-        {
-            Folder folder = await _folderSerivce.GetFolderById(folderId, ct)
+        Folder folder = await _folderSerivce.GetFolderById(folderId, ct)
                 ?? throw new NotFoundException("Folder not found");
 
-            Project project = await _projectService.GetProjectAsync(folder.ProjectId, CurrentUserId, ct)
-                ?? throw new NotFoundException("Project not found");
-            if (project.OwnerId != CurrentUserId) throw new ForbiddenException();
+        Project project = await _projectService.GetProjectAsync(folder.ProjectId, CurrentUserId, ct)
+            ?? throw new NotFoundException("Project not found");
+        if (project.OwnerId != CurrentUserId) throw new ForbiddenException();
 
-            List<AppFile> appFiles = await _fileService.GetFileListByFolderId(folder.Id);
+        List<AppFile> appFiles = await _fileService.GetFileListByFolderId(folder.Id);
 
-            IEnumerable<Guid> contentIds = appFiles.Select(f => f.ContentId);
+        IEnumerable<Guid> contentIds = appFiles.Select(f => f.ContentId);
 
-            foreach (var contentId in contentIds)
-            {
-                try { await _content.DeleteFileContentAsync(contentId, ct); }
-                catch { }
-            }
-
-            await _folderSerivce.DeleteFolderAsync(folder);
-            return NoContent();
-        }
-        catch (Exception)
+        foreach (var contentId in contentIds)
         {
-            throw;
+            try { await _content.DeleteFileContentAsync(contentId, ct); }
+            catch { }
         }
+
+        await _folderSerivce.DeleteFolderAsync(folder);
+        return NoContent();
     }
 }

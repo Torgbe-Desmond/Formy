@@ -9,13 +9,6 @@ using PuppeteerSharp.Media;
 
 namespace Formify.Api.Services;
 
-/// <summary>
-/// Renders HTML to PDF using headless Chromium via PuppeteerSharp — the direct .NET
-/// equivalent of Node's Puppeteer-based export.controller.js. On first run it downloads
-/// a matching Chromium build into the app's local cache; make sure the deploy target
-/// has outbound access and enough disk (~200MB) for that download, or bake it into the
-/// container image at build time (see BrowserFetcher docs).
-/// </summary>
 public class PdfExportService : IPdfExportService, IAsyncDisposable
 {
     private static readonly SemaphoreSlim BrowserFetchLock = new(1, 1);

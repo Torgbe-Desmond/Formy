@@ -15,21 +15,18 @@ public class ExportController : ApiControllerBase
     private readonly IFolderSerivce _folderSerivce;
     private readonly IFileService _fileService;
     private readonly ISchemaService _schemaService;
-    private readonly IFileContentService _fileContentService;
 
     public ExportController(
         IPdfExportService pdf,
         IFolderSerivce folderSerivce,
         IFileService fileService,
-        ISchemaService schemaService,
-        IFileContentService fileContentService
+        ISchemaService schemaService
         )
     {
         _pdf = pdf;
         _folderSerivce = folderSerivce;
         _fileService = fileService;
         _schemaService = schemaService;
-        _fileContentService = fileContentService;
 
     }
 
@@ -47,45 +44,38 @@ public class ExportController : ApiControllerBase
         Guid folderId,
         CancellationToken ct)
     {
-        try
+        Folder? folder = await _folderSerivce.GetFolderById(folderId, ct);
+
+        if (folder == null) throw new NotFoundException($"Foldef with id ${folderId} not found");
+
+        List<AppFile> appFiles = await _fileService.GetFileListByFolderId(folderId, ct);
+
+        SchemaTemplate? schemaTemplate = await _schemaService.GetSchemaAsync(folderId, CurrentUserId, ct);
+
+        if (schemaTemplate == null || schemaTemplate.Schemas == null)
         {
-            Folder? folder = await _folderSerivce.GetFolderById(folderId, ct);
-
-            if (folder == null) throw new NotFoundException($"Foldef with id ${folderId} not found");
-
-            List<AppFile> appFiles = await _fileService.GetFileListByFolderId(folderId, ct);
-
-            SchemaTemplate? schemaTemplate = await _schemaService.GetSchemaAsync(folderId, CurrentUserId, ct);
-
-            if (schemaTemplate == null || schemaTemplate.Schemas == null)
-            {
-                throw new BadRequestException($"Schema has not been defined for folder with name {folder.Name}");
-            }
-
-            SchemaEntry? schemaEntry = schemaTemplate.Schemas.Find(schema =>
-                schema.Name == schemaTemplate.EntrySchema && schemaTemplate.EntrySchema != "Main");
-
-            if (schemaEntry == null)
-            {
-                throw new BadRequestException($"Schema has not been defined for folder with name {folder.Name}");
-            }
-
-            string zipPath = await _pdf.RenderFolderAsZipAsync(appFiles, schemaEntry, folder.Name, ct);
-
-            var stream = new FileStream(
-            zipPath,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.Read,
-            bufferSize: 4096,
-            options: FileOptions.Asynchronous | FileOptions.DeleteOnClose);
-
-            return File(stream, "application/zip", $"{folder.Name}.zip");
+            throw new BadRequestException($"Schema has not been defined for folder with name {folder.Name}");
         }
-        catch (Exception)
+
+        SchemaEntry? schemaEntry = schemaTemplate.Schemas.Find(schema =>
+            schema.Name == schemaTemplate.EntrySchema && schemaTemplate.EntrySchema != "Main");
+
+        if (schemaEntry == null)
         {
-            throw;
+            throw new BadRequestException($"Schema has not been defined for folder with name {folder.Name}");
         }
+
+        string zipPath = await _pdf.RenderFolderAsZipAsync(appFiles, schemaEntry, folder.Name, ct);
+
+        var stream = new FileStream(
+        zipPath,
+        FileMode.Open,
+        FileAccess.Read,
+        FileShare.Read,
+        bufferSize: 4096,
+        options: FileOptions.Asynchronous | FileOptions.DeleteOnClose);
+
+        return File(stream, "application/zip", $"{folder.Name}.zip");
     }
 
 
@@ -93,24 +83,17 @@ public class ExportController : ApiControllerBase
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportPdf(string id, ExportPdfRequest request, CancellationToken ct)
     {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(request.Html))
-                throw new BadRequestException("html is required");
+        if (string.IsNullOrWhiteSpace(request.Html))
+            throw new BadRequestException("html is required");
 
-            int margins = request.Margins is >= 0 and <= 200 ? request.Margins.Value : 60;
-            byte[] pdfBytes = await _pdf.RenderAsync(request.Html, margins, ct);
+        int margins = request.Margins is >= 0 and <= 200 ? request.Margins.Value : 60;
+        byte[] pdfBytes = await _pdf.RenderAsync(request.Html, margins, ct);
 
-            string safeName = string.IsNullOrWhiteSpace(request.Filename)
-                ? "document"
-                : Regex.Replace(request.Filename.Trim(), "[/\\\\?%*:|\"<>]", "_");
-            if (string.IsNullOrWhiteSpace(safeName)) safeName = "document";
+        string safeName = string.IsNullOrWhiteSpace(request.Filename)
+            ? "document"
+            : Regex.Replace(request.Filename.Trim(), "[/\\\\?%*:|\"<>]", "_");
+        if (string.IsNullOrWhiteSpace(safeName)) safeName = "document";
 
-            return File(pdfBytes, "application/pdf", $"{safeName}.pdf");
-        }
-        catch (Exception)
-        {
-            throw;
-        }
+        return File(pdfBytes, "application/pdf", $"{safeName}.pdf");
     }
 }

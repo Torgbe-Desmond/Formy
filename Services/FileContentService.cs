@@ -24,55 +24,32 @@ public class FileContentService : IFileContentService
 
     public async Task<string> DownloadFileContentAsync(Guid fileContentId, CancellationToken ct = default)
     {
-        try
-        {
-            FileContent? record = await _db.FileContents.FirstOrDefaultAsync(fileContent => fileContent.Id == fileContentId);
-            return record?.Content ?? string.Empty;
-        }
-        catch (Exception)
-        {
-
-            throw;
-        }
+        FileContent? record = await _db.FileContents.FirstOrDefaultAsync(fileContent => fileContent.Id == fileContentId);
+        return record?.Content ?? string.Empty;
     }
 
     public async Task UpdateFileContentAsync(Guid contentId, string content, CancellationToken ct = default)
     {
-        try
+        FileContent? fileContent = await _db.FileContents.FirstOrDefaultAsync(fileContent => fileContent.Id == contentId, ct);
+        if (fileContent == null)
         {
-            FileContent? fileContent = await _db.FileContents.FirstOrDefaultAsync(fileContent => fileContent.Id == contentId, ct);
-            if (fileContent == null)
-            {
-                throw new NotFoundException($"File Content with id {contentId} not found.");
-            }
-            fileContent.Content = content ?? string.Empty;
-            fileContent.UpdatedAt = DateTime.UtcNow;
-            await _db.SaveChangesAsync(ct);
+            throw new NotFoundException($"File Content with id {contentId} not found.");
         }
-        catch (Exception)
-        {
-            throw;
-        }
+        fileContent.Content = content ?? string.Empty;
+        fileContent.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
     }
 
     public async Task DeleteFileContentAsync(Guid contentId, CancellationToken ct = default)
     {
-        try
-        {
-            FileContent? fileContent = await _db.FileContents.FirstOrDefaultAsync(fileContent => fileContent.Id == contentId, ct);
+        FileContent? fileContent = await _db.FileContents.FirstOrDefaultAsync(fileContent => fileContent.Id == contentId, ct);
 
-            if (fileContent == null)
-            {
-                throw new NotFoundException($"File Content with id {contentId} not found.");
-            }
-            _db.FileContents.Remove(fileContent);
-            await _db.SaveChangesAsync(ct);
-        }
-        catch (Exception)
+        if (fileContent == null)
         {
-            throw;
+            throw new NotFoundException($"File Content with id {contentId} not found.");
         }
+        _db.FileContents.Remove(fileContent);
+        await _db.SaveChangesAsync(ct);
     }
-
 
 }

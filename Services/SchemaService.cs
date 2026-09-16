@@ -17,41 +17,19 @@ public class SchemaService : ISchemaService
 
     private async Task AssertFolderOwnershipAsync(Guid folderId, Guid userId, CancellationToken ct)
     {
-        try
-        {
-            var folder = await _db.Folders.FirstOrDefaultAsync(f => f.Id == folderId, ct)
-                ?? throw new NotFoundException("Folder not found");
-            var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == folder.ProjectId, ct);
-            if (project is null || project.OwnerId != userId) throw new ForbiddenException();
+        Folder folder = await _db.Folders.FirstOrDefaultAsync(f => f.Id == folderId, ct)
+    ?? throw new NotFoundException("Folder not found");
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == folder.ProjectId, ct);
+        if (project is null || project.OwnerId != userId) throw new ForbiddenException();
 
-        }
-        catch (Exception)
-        {
-
-            throw;
-        }
     }
 
     public async Task<SchemaTemplate> GetSchemaAsync(Guid folderId, Guid userId, CancellationToken ct = default)
     {
-        try
-        {
-            await AssertFolderOwnershipAsync(folderId, userId, ct);
-
-            return await _db.SchemaTemplates
-                .Include(s => s.Schemas)
-                .FirstOrDefaultAsync(s => s.FolderId == folderId, ct)
-                ?? throw new NotFoundException("Schema not found");
-        }
-        catch (Exception)
-        {
-            throw;
-        }
-    }
-
-    class OwnerSchema
-    {
-
+        return await _db.SchemaTemplates
+            .Include(s => s.Schemas)
+            .FirstOrDefaultAsync(s => s.FolderId == folderId, ct)
+            ?? throw new NotFoundException("Schema not found");
     }
 
     public async Task<List<SchemaEntry>> GetSchemasAsync(Guid projectId, CancellationToken ct = default)
@@ -92,35 +70,27 @@ public class SchemaService : ISchemaService
         CancellationToken ct = default
     )
     {
-        try
+        SchemaTemplate? schemaTemplate = await _db.SchemaTemplates
+               .FirstOrDefaultAsync(s => s.FolderId == folderId, ct);
+
+        if (schemaTemplate != null)
         {
-            SchemaTemplate? schemaTemplate = await _db.SchemaTemplates
-                .FirstOrDefaultAsync(s => s.FolderId == folderId, ct);
-
-            if (schemaTemplate != null)
-            {
-                throw new BadRequestException($"Template for the folder with id {folderId} already exist");
-            }
-
-            schemaTemplate = new SchemaTemplate { FolderId = folderId };
-            _db.SchemaTemplates.Add(schemaTemplate);
-
-            SchemaEntry schemaEntry = new SchemaEntry
-            {
-                SchemaTemplateId = schemaTemplate.Id,
-                Name = "Main"
-            };
-
-            _db.SchemaEntries.Add(schemaEntry);
-
-            await _db.SaveChangesAsync();
-            return schemaTemplate;
+            throw new BadRequestException($"Template for the folder with id {folderId} already exist");
         }
-        catch (Exception)
+
+        schemaTemplate = new SchemaTemplate { FolderId = folderId };
+        _db.SchemaTemplates.Add(schemaTemplate);
+
+        SchemaEntry schemaEntry = new SchemaEntry
         {
+            SchemaTemplateId = schemaTemplate.Id,
+            Name = "Main"
+        };
 
-            throw;
-        }
+        _db.SchemaEntries.Add(schemaEntry);
+
+        await _db.SaveChangesAsync();
+        return schemaTemplate;
 
     }
 
@@ -130,84 +100,74 @@ public class SchemaService : ISchemaService
         IEnumerable<InsertionSchema> entries,
         CancellationToken ct = default)
     {
-        try
+        SchemaTemplate? schemaTemplate = await _db.SchemaTemplates
+      .FirstOrDefaultAsync(s => s.FolderId == folderId, ct);
+
+        if (schemaTemplate == null) throw new NotFoundException("Schema not found");
+
+        schemaTemplate.EntrySchema = entrySchema;
+        schemaTemplate.UpdatedAt = DateTime.UtcNow;
+
+        List<SchemaEntry> schemaEntry = await _db.SchemaEntries
+        .Where(schemaEntry => schemaEntry.SchemaTemplateId == schemaTemplate.Id)
+        .ToListAsync();
+
+        var incoming = entries.ToDictionary(e => e.Name, e => e);
+        var existingSchemaEntryByName = schemaEntry.ToDictionary(s => s.Name, s => s);
+
+        // Checking for schema names not available in the incoming request
+        foreach (var stale in existingSchemaEntryByName.Values.Where(s => !incoming.ContainsKey(s.Name)))
         {
-            SchemaTemplate? schemaTemplate = await _db.SchemaTemplates
-       .FirstOrDefaultAsync(s => s.FolderId == folderId, ct);
+            schemaEntry.Remove(stale);
+            _db.SchemaEntries.Remove(stale);
+        }
 
-            if (schemaTemplate == null) throw new NotFoundException("Schema not found");
-
-            schemaTemplate.EntrySchema = entrySchema;
-            schemaTemplate.UpdatedAt = DateTime.UtcNow;
-
-            List<SchemaEntry> schemaEntry = await _db.SchemaEntries
-            .Where(schemaEntry => schemaEntry.SchemaTemplateId == schemaTemplate.Id)
-            .ToListAsync();
-
-            var incoming = entries.ToDictionary(e => e.Name, e => e);
-            var existingSchemaEntryByName = schemaEntry.ToDictionary(s => s.Name, s => s);
-
-            // Checking for schema names not available in the incoming request
-            foreach (var stale in existingSchemaEntryByName.Values.Where(s => !incoming.ContainsKey(s.Name)))
+        foreach (var e in incoming.Values)
+        {
+            /*
+             Update the existing schema entry information with the incoming one
+             if the name is still available in the existingSchemaEntryByName dictionary else add it as 
+             a new entry
+            */
+            if (existingSchemaEntryByName.TryGetValue(e.Name, out var existingschemaEntry))
             {
-                schemaEntry.Remove(stale);
-                _db.SchemaEntries.Remove(stale);
+
+                SchemaEntry? existSchemaEntry = await _db.SchemaEntries
+                .FirstOrDefaultAsync(schemaEntry => schemaEntry.SchemaTemplateId == schemaTemplate.Id && schemaEntry.Name == e.Name);
+
+                if (existSchemaEntry != null)
+                {
+                    existSchemaEntry.SchemaYaml = e.SchemaYaml;
+                    existSchemaEntry.TemplateHtml = e.TemplateHtml;
+                    existSchemaEntry.TemplateCss = e.TemplateCss;
+                    existSchemaEntry.UpdatedAt = DateTime.UtcNow;
+                }
+
+                await _db.SaveChangesAsync();
             }
-
-            foreach (var e in incoming.Values)
+            else
             {
-                /*
-                 Update the existing schema entry information with the incoming one
-                 if the name is still available in the existingSchemaEntryByName dictionary else add it as 
-                 a new entry
-                */
-                if (existingSchemaEntryByName.TryGetValue(e.Name, out var existingschemaEntry))
+                SchemaEntry? existSchemaEntry = await _db.SchemaEntries
+                .FirstOrDefaultAsync(schemaEntry => schemaEntry.SchemaTemplateId == schemaTemplate.Id && schemaEntry.Name == e.Name);
+
+                Console.WriteLine($"New:{e.Name}");
+                SchemaEntry schemaEntry1 = new SchemaEntry
                 {
+                    SchemaTemplateId = schemaTemplate.Id,
+                    Name = e.Name,
+                    SchemaYaml = e.SchemaYaml,
+                    TemplateHtml = e.TemplateHtml,
+                    TemplateCss = e.TemplateCss,
+                };
 
-                    SchemaEntry? existSchemaEntry = await _db.SchemaEntries
-                    .FirstOrDefaultAsync(schemaEntry => schemaEntry.SchemaTemplateId == schemaTemplate.Id && schemaEntry.Name == e.Name);
-
-                    if (existSchemaEntry != null)
-                    {
-                        existSchemaEntry.SchemaYaml = e.SchemaYaml;
-                        existSchemaEntry.TemplateHtml = e.TemplateHtml;
-                        existSchemaEntry.TemplateCss = e.TemplateCss;
-                        existSchemaEntry.UpdatedAt = DateTime.UtcNow;
-                    }
-
-                    await _db.SaveChangesAsync();
-                }
-                else
-                {
-                    SchemaEntry? existSchemaEntry = await _db.SchemaEntries
-                    .FirstOrDefaultAsync(schemaEntry => schemaEntry.SchemaTemplateId == schemaTemplate.Id && schemaEntry.Name == e.Name);
-
-                    Console.WriteLine($"New:{e.Name}");
-                    SchemaEntry schemaEntry1 = new SchemaEntry
-                    {
-                        SchemaTemplateId = schemaTemplate.Id,
-                        Name = e.Name,
-                        SchemaYaml = e.SchemaYaml,
-                        TemplateHtml = e.TemplateHtml,
-                        TemplateCss = e.TemplateCss,
-                    };
-
-                    _db.SchemaEntries.Add(schemaEntry1);
-
-                }
+                _db.SchemaEntries.Add(schemaEntry1);
 
             }
 
-            await _db.SaveChangesAsync();
-            return schemaTemplate;
-
-        }
-        catch (Exception)
-        {
-
-            throw;
         }
 
+        await _db.SaveChangesAsync();
+        return schemaTemplate;
     }
 
     public async Task<SchemaTemplate> UpsertSchemaAsync(

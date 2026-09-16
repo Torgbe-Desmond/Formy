@@ -55,27 +55,19 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse> RegisterUser(RegisterRequest user, CancellationToken ct = default)
     {
-        try
+        var newUser = new User
         {
-            var newUser = new User
-            {
-                Name = user.Name.Trim(),
-                Email = user.Email.Trim().ToLowerInvariant(),
-                PasswordHash = this.HashPassword(user.Password),
-            };
+            Name = user.Name.Trim(),
+            Email = user.Email.Trim().ToLowerInvariant(),
+            PasswordHash = this.HashPassword(user.Password),
+        };
 
-            _dbContext.Users.Add(newUser);
-            await _dbContext.SaveChangesAsync(ct);
+        _dbContext.Users.Add(newUser);
+        await _dbContext.SaveChangesAsync(ct);
 
-            var token = this.GenerateToken(newUser);
+        var token = this.GenerateToken(newUser);
 
-            return new AuthResponse(token, new UserDto(newUser.Id, newUser.Name, newUser.Email));
-        }
-        catch (Exception)
-        {
-
-            throw;
-        }
+        return new AuthResponse(token, new UserDto(newUser.Id, newUser.Name, newUser.Email));
     }
 
 

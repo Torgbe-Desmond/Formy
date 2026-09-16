@@ -30,59 +30,43 @@ public class BreadcrumbService : IBreadcrumbService
 
     public async Task<List<BreadcrumbNode>> GetBreadcrumbAsync(string type, Guid id, CancellationToken ct = default)
     {
-        try
+        var node = await FetchNodeAsync(type, id, ct);
+
+        var parentType = ParentType(type);
+        if (parentType is null)
         {
-            var node = await FetchNodeAsync(type, id, ct);
-
-            var parentType = ParentType(type);
-            if (parentType is null)
-            {
-                return new List<BreadcrumbNode> { node };
-            }
-
-            var ancestors = await GetBreadcrumbAsync(parentType, node.ParentId!.Value, ct);
-            ancestors.Add(node);
-            return ancestors;
+            return new List<BreadcrumbNode> { node };
         }
-        catch (Exception)
-        {
 
-            throw;
-        }
+        var ancestors = await GetBreadcrumbAsync(parentType, node.ParentId!.Value, ct);
+        ancestors.Add(node);
+        return ancestors;
     }
 
     private async Task<BreadcrumbNode> FetchNodeAsync(string type, Guid id, CancellationToken ct)
     {
-        try
+        switch (type)
         {
-            switch (type)
-            {
-                case "project":
-                    {
-                        var project = await _db.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct)
-                            ?? throw new NotFoundException($"Project {id} not found");
-                        return new BreadcrumbNode(project.Id, project.Name, "project", Levels["project"], null);
-                    }
-                case "folder":
-                    {
-                        var folder = await _db.Folders.AsNoTracking().FirstOrDefaultAsync(f => f.Id == id, ct)
-                            ?? throw new NotFoundException($"Folder {id} not found");
-                        return new BreadcrumbNode(folder.Id, folder.Name, "folder", Levels["folder"], folder.ProjectId);
-                    }
-                case "file":
-                    {
-                        var file = await _db.AppFiles.AsNoTracking().FirstOrDefaultAsync(f => f.Id == id, ct)
-                            ?? throw new NotFoundException($"File {id} not found");
-                        return new BreadcrumbNode(file.Id, file.Name, "file", Levels["file"], file.FolderId);
-                    }
-                default:
-                    throw new AppException($"Unknown entity type: {type}", 400);
-            }
-        }
-        catch (Exception)
-        {
-
-            throw;
+            case "project":
+                {
+                    var project = await _db.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct)
+                        ?? throw new NotFoundException($"Project {id} not found");
+                    return new BreadcrumbNode(project.Id, project.Name, "project", Levels["project"], null);
+                }
+            case "folder":
+                {
+                    var folder = await _db.Folders.AsNoTracking().FirstOrDefaultAsync(f => f.Id == id, ct)
+                        ?? throw new NotFoundException($"Folder {id} not found");
+                    return new BreadcrumbNode(folder.Id, folder.Name, "folder", Levels["folder"], folder.ProjectId);
+                }
+            case "file":
+                {
+                    var file = await _db.AppFiles.AsNoTracking().FirstOrDefaultAsync(f => f.Id == id, ct)
+                        ?? throw new NotFoundException($"File {id} not found");
+                    return new BreadcrumbNode(file.Id, file.Name, "file", Levels["file"], file.FolderId);
+                }
+            default:
+                throw new AppException($"Unknown entity type: {type}", 400);
         }
     }
 

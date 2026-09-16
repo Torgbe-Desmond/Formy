@@ -20,27 +20,20 @@ public class BreadcrumbController : ApiControllerBase
     [ProducesResponseType(typeof(ResponseModel<List<BreadcrumbNode>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Get(string type, Guid id, CancellationToken ct)
     {
-        try
+        if (!ValidTypes.Contains(type))
         {
-            if (!ValidTypes.Contains(type))
-            {
-                throw new BadRequestException("type must be one of: project, folder, file");
-            }
-
-            List<BreadcrumbNode> crumbs = await _breadcrumb.GetBreadcrumbAsync(type, id, ct);
-
-            ResponseModel<List<BreadcrumbNode>> responseModel = new ResponseModel<List<BreadcrumbNode>>
-            {
-                Data = crumbs,
-                Message = "Login was successful",
-                StatusCode = StatusCodes.Status200OK
-            };
-
-            return Ok(responseModel);
+            throw new BadRequestException("type must be one of: project, folder, file");
         }
-        catch (Exception)
+
+        List<BreadcrumbNode> crumbs = await _breadcrumb.GetBreadcrumbAsync(type, id, ct);
+
+        ResponseModel<List<BreadcrumbNode>> responseModel = new ResponseModel<List<BreadcrumbNode>>
         {
-            throw;
-        }
+            Data = crumbs,
+            Message = "Login was successful",
+            StatusCode = StatusCodes.Status200OK
+        };
+
+        return Ok(responseModel);
     }
 }

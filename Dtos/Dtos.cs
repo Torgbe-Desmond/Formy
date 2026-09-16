@@ -77,3 +77,9 @@ public class ResponseModel<T>
     public string Message { get; set; } = string.Empty;
     public int StatusCode { get; set; } = default;
 }
+
+public class ErrorResponseModel()
+{
+    public string Message { get; set; } = string.Empty;
+    public int StatusCode { get; set; } = default;
+}
