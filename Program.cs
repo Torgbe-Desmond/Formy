@@ -48,12 +48,12 @@ app.UseSerilogRequestLogging();
 app.UseCors("AllowFrontend");
 
 // Item 2 & 3: Serve default files (index.html) and enable static files
-// app.UseDefaultFiles();
-// app.UseStaticFiles();
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-// app.MapFallbackToFile("index.html");
+app.MapFallbackToFile("index.html");
 
 app.Run();
