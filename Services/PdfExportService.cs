@@ -13,12 +13,10 @@ public class PdfExportService : IPdfExportService, IAsyncDisposable
 {
     private static readonly SemaphoreSlim BrowserFetchLock = new(1, 1);
     private static bool _browserFetched;
-
     private IBrowser? _browser;
     private readonly SemaphoreSlim _browserLock = new(1, 1);
     private static readonly FluidParser Parser = new();
     private readonly IFileContentService _fileContentService;
-
 
     public PdfExportService(IFileContentService fileContentService)
     {
@@ -135,9 +133,7 @@ public class PdfExportService : IPdfExportService, IAsyncDisposable
             _ => element
         };
     }
-
     private object UnwrapMetadataValue(object val) => val;
-
     private async Task<IBrowser> GetBrowserAsync()
     {
         if (_browser is { IsClosed: false }) return _browser;
@@ -167,10 +163,8 @@ public class PdfExportService : IPdfExportService, IAsyncDisposable
         CancellationToken ct = default)
     {
         var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
         string tempDir = Path.Combine(Path.GetTempPath(), $"export_{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
-
         string zipPath = Path.Combine(Path.GetTempPath(), $"{zipFileNameWithoutExtension}_{Guid.NewGuid():N}.zip");
 
         try

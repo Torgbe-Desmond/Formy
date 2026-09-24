@@ -49,7 +49,6 @@ public class ExceptionMiddleware
         ErrorResponseModel errorResponseModel = new ErrorResponseModel
         {
             Message = payload.message,
-            StatusCode = statusCode,
         };
 
         return context.Response.WriteAsync(JsonSerializer.Serialize(errorResponseModel, JsonOptions));
