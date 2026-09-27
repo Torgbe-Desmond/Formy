@@ -37,7 +37,8 @@ public class ExceptionMiddleware
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception");
-            await WriteAsync(context, 500, new ErrorMessage(ex.ToString()));
+            string message = ex.InnerException?.Message ?? ex.Message ?? "Something went wrong";
+            await WriteAsync(context, 500, new ErrorMessage(message));
         }
     }
 

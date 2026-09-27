@@ -23,4 +23,28 @@ public class SchemaEntryService : ISchemaEntryService
         await _db.SaveChangesAsync();
     }
 
+    public async Task<bool> UpdateEntrySchema(
+        Guid schemaTemplateId,
+        string schemaEntryName,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            SchemaTemplate? schemaTemplate = await _db.SchemaTemplates
+            .FirstOrDefaultAsync(s => s.Id == schemaTemplateId, ct);
+
+            if (schemaTemplate == null) throw new NotFoundException("Schema Template not found");
+
+            schemaTemplate.EntrySchema = schemaEntryName;
+            schemaTemplate.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
 }

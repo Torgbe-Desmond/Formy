@@ -80,11 +80,16 @@ public interface ISchemaService
         CancellationToken ct = default
     );
     Task<List<SchemaEntry>> GetSchemasAsync(Guid projectId, CancellationToken ct = default);
+
 }
 
 public interface ISchemaEntryService
 {
     Task DeleteSchemaEntry(Guid schemaTemplateId, string SchemaEntryName, CancellationToken ct = default);
+    Task<bool> UpdateEntrySchema(
+      Guid schemaTemplateId,
+      string schemaEntryName,
+      CancellationToken ct = default);
 }
 
 public interface IPdfExportService

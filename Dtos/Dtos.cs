@@ -16,6 +16,7 @@ public record FolderDto(Guid Id, string Name, Guid ProjectId, DateTime CreatedAt
 
 // ── Schema (multi-schema shape) ─────────────────────────────────────────
 public record SchemaEntryRequest(string? SchemaYaml, string? TemplateHtml, string? TemplateCss);
+public record UpdateSchemaEntryRequest(string SchemaEntryName);
 
 public record UpsertSchemaRequest(
     Dictionary<string, SchemaEntryRequest>? Schemas,

@@ -20,4 +20,14 @@ public class SchemaEntryController : ApiControllerBase
         await _schemaEntryService.DeleteSchemaEntry(schemaTemplateId, request.SchemaEntryName, ct);
         return NoContent();
     }
+
+    [HttpPatch("schema-template/{schemaTemplateId:guid}")]
+    [ProducesResponseType(typeof(ResponseModel<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ResponseModel<object>), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> Update(Guid schemaTemplateId, [FromBody] UpdateSchemaEntryRequest request, CancellationToken ct = default)
+    {
+        await _schemaEntryService.UpdateEntrySchema(schemaTemplateId, request.SchemaEntryName, ct);
+        return NoContent();
+    }
+
 }
